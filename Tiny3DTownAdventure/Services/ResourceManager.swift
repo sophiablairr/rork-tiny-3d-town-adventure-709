@@ -68,34 +68,53 @@ class ResourceManager {
     }
     
     private func fixMaterials(on node: SCNNode) {
+        node.isHidden = false
+        node.opacity = 1.0
+        node.castsShadow = true
+        if let geometry = node.geometry {
+            fixGeometryMaterials(geometry)
+        }
         node.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
             child.castsShadow = true
-            
             guard let geometry = child.geometry else { return }
             self.fixGeometryMaterials(geometry)
         }
-        
-        if let geometry = node.geometry {
-            fixGeometryMaterials(geometry)
-        }
-        node.isHidden = false
-        node.opacity = 1.0
     }
     
     private func fixGeometryMaterials(_ geometry: SCNGeometry) {
+        if geometry.materials.isEmpty {
+            let fallback = SCNMaterial()
+            fallback.diffuse.contents = UIColor(red: 0.85, green: 0.75, blue: 0.65, alpha: 1.0)
+            fallback.lightingModel = .blinn
+            fallback.isDoubleSided = true
+            geometry.materials = [fallback]
+            return
+        }
         for material in geometry.materials {
             material.isDoubleSided = true
             material.transparency = 1.0
+            material.blendMode = .replace
+            material.writesToDepthBuffer = true
+            material.readsFromDepthBuffer = true
             
-            if material.lightingModel == .physicallyBased {
-                material.metalness.intensity = min(material.metalness.intensity, 0.3)
-                material.roughness.intensity = max(material.roughness.intensity, 0.5)
-            }
+            material.lightingModel = .blinn
+            material.metalness.contents = nil
+            material.roughness.contents = nil
+            material.ambientOcclusion.contents = nil
+            material.normal.contents = nil
             
             if material.diffuse.contents == nil {
                 material.diffuse.contents = UIColor(red: 0.85, green: 0.75, blue: 0.65, alpha: 1.0)
+            }
+            
+            if let color = material.diffuse.contents as? UIColor {
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                color.getRed(&r, green: &g, blue: &b, alpha: &a)
+                if a < 0.1 {
+                    material.diffuse.contents = UIColor(red: 0.85, green: 0.75, blue: 0.65, alpha: 1.0)
+                }
             }
         }
     }
