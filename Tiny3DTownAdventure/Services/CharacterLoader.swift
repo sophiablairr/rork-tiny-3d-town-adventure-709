@@ -100,16 +100,20 @@ class CharacterLoader {
                     }
                     
                     // 2. Force Strict Rendering Settings
-                    newMat.lightingModel = .blinn // Restore Blinn now that we know material works
+                    newMat.lightingModel = .constant // Back to FLAT for safety (Orange test worked with this)
                     newMat.isDoubleSided = true
                     newMat.transparency = 1.0
                     newMat.transparencyMode = .aOne 
                     newMat.writesToDepthBuffer = true
                     newMat.readsFromDepthBuffer = true
-                    newMat.blendMode = .replace // Keep replace to be safe against ghosting
+                    newMat.blendMode = .replace 
                     
-                    // 3. Nuclear Opacity via Shader (Just to be absolutely sure)
-                    newMat.shaderModifiers = [.fragment: "_output.color.a = 1.0;"]
+                    // 3. SUPER NUCLEAR Opacity via Shader 
+                    // Force both the surface diffuse alpha AND the final output alpha
+                    newMat.shaderModifiers = [
+                        .surface: "_surface.diffuse.a = 1.0;",
+                        .fragment: "_output.color.a = 1.0;"
+                    ]
                     
                     newMaterials.append(newMat)
                 }
