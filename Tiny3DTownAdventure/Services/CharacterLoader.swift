@@ -72,35 +72,35 @@ class CharacterLoader {
             child.renderingOrder = 100
             
             if let geo = child.geometry {
-                for mat in geo.materials {
-                    mat.lightingModel = .blinn
+                // MATERIAL LAUNDERING: Create FRESH materials
+                // We do not modify the old ones. We replace them entirely.
+                var newMaterials: [SCNMaterial] = []
+                
+                for oldMat in geo.materials {
+                    let newMat = SCNMaterial()
                     
-                    // NUCLEAR OPTION: Shader Modifier to FORCE Opacity
-                    // This tells the GPU: "Ignore whatever alpha you calculated, set it to 1.0"
-                    mat.shaderModifiers = [.fragment: "_output.color.a = 1.0;"]
-                    
-                    // Clear EVERY possible map that could affect look
-                    mat.metalness.contents = 0.0
-                    mat.roughness.contents = 1.0
-                    mat.normal.contents = nil
-                    mat.emission.contents = nil
-                    mat.transparent.contents = nil 
-                    mat.ambientOcclusion.contents = nil
-                    mat.selfIllumination.contents = nil
-                    
-                    // Standard Opaque Settings
-                    mat.transparency = 1.0
-                    mat.isDoubleSided = true
-                    mat.writesToDepthBuffer = true
-                    mat.readsFromDepthBuffer = true
-                    
-                    // reset blend mode to standard alpha (with alpha=1, this is opaque)
-                    mat.blendMode = .alpha 
-                    
-                    if mat.diffuse.contents == nil {
-                        mat.diffuse.contents = UIColor.systemGray
+                    // 1. Copy ONLY the color texture
+                    newMat.diffuse.contents = oldMat.diffuse.contents
+                    if newMat.diffuse.contents == nil {
+                        newMat.diffuse.contents = UIColor.systemGray
                     }
+                    
+                    // 2. Force Strict Rendering Settings
+                    newMat.lightingModel = .blinn
+                    newMat.isDoubleSided = true
+                    newMat.transparency = 1.0
+                    newMat.writesToDepthBuffer = true
+                    newMat.readsFromDepthBuffer = true
+                    newMat.blendMode = .alpha // Standard opaque blending
+                    
+                    // 3. Nuclear Opacity via Shader (Just to be absolutely sure)
+                    newMat.shaderModifiers = [.fragment: "_output.color.a = 1.0;"]
+                    
+                    newMaterials.append(newMat)
                 }
+                
+                // Replace the array entirely
+                geo.materials = newMaterials
             }
         }
         
