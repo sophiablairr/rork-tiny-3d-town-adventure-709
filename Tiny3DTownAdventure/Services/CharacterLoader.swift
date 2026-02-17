@@ -72,25 +72,27 @@ class CharacterLoader {
             child.renderingOrder = 100 
             
             if let geo = child.geometry {
-                for mat in geo.materials {
-                    mat.lightingModel = .blinn
-                    mat.isDoubleSided = true
-                    mat.transparency = 1.0
-                    
-                    if mat.diffuse.contents == nil {
-                        mat.diffuse.contents = UIColor.systemGray
-                    }
-                }
+                // FORCE every single material to be a solid, visible color
+                let debugMaterial = SCNMaterial()
+                debugMaterial.diffuse.contents = UIColor.systemBlue
+                debugMaterial.lightingModel = .constant // No light needed to see this
+                debugMaterial.isDoubleSided = true
+                debugMaterial.transparency = 1.0
+                
+                geo.materials = [debugMaterial] // Replace all materials with one that MUST work
             }
         }
         
         // --- STEP 4: AUTO-SCALE AND PIVOT TO BOTTOM ---
         let (min, max) = wrapper.boundingBox
         let height = max.y - min.y
+        print("📐 CharacterLoader: BoundingBox Min:\(min) Max:\(max) Height:\(height)")
+
         if height > 0 {
-            // Scale to approx 1.8m
-            let s = 1.8 / height
-            wrapper.scale = SCNVector3(s, s, s)
+            if height > 8 || height < 0.2 {
+                let s = 1.8 / height
+                wrapper.scale = SCNVector3(s, s, s)
+            }
             
             let centerX = (max.x + min.x) / 2
             let centerZ = (max.z + min.z) / 2
@@ -98,7 +100,7 @@ class CharacterLoader {
         }
         
         // --- STEP 5: DEBUG MARKER ---
-        let marker = SCNNode(geometry: SCNSphere(radius: 0.1))
+        let marker = SCNNode(geometry: SCNSphere(radius: 0.12))
         marker.geometry?.firstMaterial?.diffuse.contents = UIColor.red
         marker.geometry?.firstMaterial?.lightingModel = .constant
         marker.position = SCNVector3(0, 1.7, 0) 
