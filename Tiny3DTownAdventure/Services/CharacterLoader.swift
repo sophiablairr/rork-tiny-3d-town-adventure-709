@@ -69,9 +69,10 @@ class CharacterLoader {
         wrapper.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
-            child.renderingOrder = 100 
+            child.renderingOrder = 100
             
             if let geo = child.geometry {
+<<<<<<< HEAD
                 // FORCE every single material to be a solid, visible color
                 let debugMaterial = SCNMaterial()
                 debugMaterial.diffuse.contents = UIColor.systemBlue
@@ -80,6 +81,28 @@ class CharacterLoader {
                 debugMaterial.transparency = 1.0
                 
                 geo.materials = [debugMaterial] // Replace all materials with one that MUST work
+=======
+                // "Sanitize" materials: Create fresh material objects but keep the original textures.
+                // This strips away any hidden USDZ shader issues while preserving the look.
+                geo.materials = geo.materials.map { oldMat in
+                    let newMat = SCNMaterial()
+                    // Carry over the texture or color
+                    newMat.diffuse.contents = oldMat.diffuse.contents
+                    
+                    // Force reliable rendering properties
+                    newMat.lightingModel = .blinn
+                    newMat.isDoubleSided = true
+                    newMat.transparency = 1.0
+                    newMat.transparencyMode = .rgbZero // Solid
+                    newMat.writesToDepthBuffer = true
+                    newMat.readsFromDepthBuffer = true
+                    
+                    if newMat.diffuse.contents == nil {
+                        newMat.diffuse.contents = UIColor.systemGray
+                    }
+                    return newMat
+                }
+>>>>>>> 1e4e48a (Material Sanitization: restored textures by applying current diffuse contents to fresh material objects)
             }
         }
         
@@ -89,21 +112,35 @@ class CharacterLoader {
         print("📐 CharacterLoader: BoundingBox Min:\(min) Max:\(max) Height:\(height)")
 
         if height > 0 {
+<<<<<<< HEAD
             if height > 8 || height < 0.2 {
                 let s = 1.8 / height
                 wrapper.scale = SCNVector3(s, s, s)
+=======
+            // Scale if it's way off
+            if height > 10 || height < 0.1 {
+                let s = 1.8 / height
+                wrapper.scale = SCNVector3(s, s, s)
+                print("📐 Applied auto-scale: \(s)")
+>>>>>>> 1e4e48a (Material Sanitization: restored textures by applying current diffuse contents to fresh material objects)
             }
             
+            // Adjust pivot to bottom center
             let centerX = (max.x + min.x) / 2
             let centerZ = (max.z + min.z) / 2
             wrapper.pivot = SCNMatrix4MakeTranslation(centerX, min.y, centerZ)
         }
         
         // --- STEP 5: DEBUG MARKER ---
+<<<<<<< HEAD
         let marker = SCNNode(geometry: SCNSphere(radius: 0.12))
+=======
+        // A small red sphere will appear where the character's head should be.
+        let marker = SCNNode(geometry: SCNSphere(radius: 0.15))
+>>>>>>> 1e4e48a (Material Sanitization: restored textures by applying current diffuse contents to fresh material objects)
         marker.geometry?.firstMaterial?.diffuse.contents = UIColor.red
         marker.geometry?.firstMaterial?.lightingModel = .constant
-        marker.position = SCNVector3(0, 1.7, 0) 
+        marker.position = SCNVector3(0, 1.7, 0) // Near head height
         wrapper.addChildNode(marker)
         
         wrapper.position = SCNVector3(0, 0, 0)
