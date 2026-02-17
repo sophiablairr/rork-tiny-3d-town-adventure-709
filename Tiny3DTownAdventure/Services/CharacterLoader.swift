@@ -100,7 +100,6 @@ class CharacterLoader {
                     // 2. Force Strict Rendering Settings
                     newMat.lightingModel = .constant // Back to FLAT for extreme sanity
                     newMat.isDoubleSided = true
-                    newMat.transparency.contents = UIColor.white // FORCE OPAQUE CHANNEL
                     newMat.transparency = 1.0
                     newMat.transparencyMode = .aOne 
                     newMat.writesToDepthBuffer = true
