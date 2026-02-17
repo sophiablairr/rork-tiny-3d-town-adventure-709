@@ -79,20 +79,34 @@ class CharacterLoader {
                 for oldMat in geo.materials {
                     let newMat = SCNMaterial()
                     
-                    // 1. Copy ONLY the color texture
-                    print("🎨 Original Diffuse: \(String(describing: oldMat.diffuse.contents)) Type: \(type(of: oldMat.diffuse.contents))")
+                    // 1. Copy ONLY the color texture if valid
+                    let diffuseContent = oldMat.diffuse.contents
+                    print("🎨 Original Diffuse: \(String(describing: diffuseContent)) Type: \(type(of: diffuseContent))")
                     
-                    // ORANGE TEST: Force a visible color to rule out texture corruption
-                    newMat.diffuse.contents = UIColor.orange
+                    if let image = diffuseContent as? UIImage {
+                        newMat.diffuse.contents = image
+                        print("✅ Material has UIImage texture")
+                    } else if let color = diffuseContent as? UIColor {
+                        newMat.diffuse.contents = color
+                        print("✅ Material has UIColor")
+                    } else if diffuseContent != nil {
+                        // It might be a URL, String (path), or MDLTexture. Assign it directly and hope SceneKit handles it.
+                        newMat.diffuse.contents = diffuseContent
+                        print("⚠️ Material has content of type \(type(of: diffuseContent)). Assigning directly.")
+                    } else {
+                        // FALLBACK: If nil, use Gray. Do NOT leave nil (which might cause invisibility).
+                        newMat.diffuse.contents = UIColor.systemGray
+                        print("⚠️ Material diffuse was NIL. Assigned systemGray fallback.")
+                    }
                     
                     // 2. Force Strict Rendering Settings
-                    newMat.lightingModel = .constant // FLAT LIGHTING TEST (Like the blue model)
+                    newMat.lightingModel = .blinn // Restore Blinn now that we know material works
                     newMat.isDoubleSided = true
                     newMat.transparency = 1.0
-                    newMat.transparencyMode = .aOne // Revert: rgbZero makes darks transparent
+                    newMat.transparencyMode = .aOne 
                     newMat.writesToDepthBuffer = true
                     newMat.readsFromDepthBuffer = true
-                    newMat.blendMode = .replace // Disable blending entirely
+                    newMat.blendMode = .replace // Keep replace to be safe against ghosting
                     
                     // 3. Nuclear Opacity via Shader (Just to be absolutely sure)
                     newMat.shaderModifiers = [.fragment: "_output.color.a = 1.0;"]
