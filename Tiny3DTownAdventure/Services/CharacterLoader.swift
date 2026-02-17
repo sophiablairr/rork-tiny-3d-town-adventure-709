@@ -89,9 +89,10 @@ class CharacterLoader {
                     newMat.lightingModel = .blinn
                     newMat.isDoubleSided = true
                     newMat.transparency = 1.0
+                    newMat.transparencyMode = .rgbZero // Ignore alpha channel of textures
                     newMat.writesToDepthBuffer = true
                     newMat.readsFromDepthBuffer = true
-                    newMat.blendMode = .alpha // Standard opaque blending
+                    newMat.blendMode = .replace // Disable blending entirely (Nuclear option)
                     
                     // 3. Nuclear Opacity via Shader (Just to be absolutely sure)
                     newMat.shaderModifiers = [.fragment: "_output.color.a = 1.0;"]
