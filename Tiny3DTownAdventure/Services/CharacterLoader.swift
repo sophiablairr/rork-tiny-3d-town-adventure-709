@@ -65,10 +65,22 @@ class CharacterLoader {
             wrapper.addChildNode(fallbackNode)
         }
         
-        // --- STEP 3: ENSURE VISIBILITY ---
+        // --- STEP 3: ENSURE VISIBILITY + FIX PBR MATERIALS ---
         wrapper.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
+            guard let geometry = child.geometry else { return }
+            for material in geometry.materials {
+                // USDZ uses PBR which needs IBL (env map) to render.
+                // Convert to blinn to preserve diffuse texture without needing IBL.
+                let diffuse = material.diffuse.contents
+                let hasDiffuse = diffuse != nil
+                material.lightingModel = .blinn
+                if !hasDiffuse {
+                    material.diffuse.contents = UIColor(red: 0.85, green: 0.75, blue: 0.65, alpha: 1.0)
+                }
+                material.isDoubleSided = true
+            }
         }
         
         // --- STEP 4: AUTO-SCALE AND PIVOT TO BOTTOM ---
