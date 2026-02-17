@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct DialogueOverlay: View {
     let text: String
