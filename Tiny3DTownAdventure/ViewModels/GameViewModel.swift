@@ -12,19 +12,20 @@ class GameViewModel {
     @ObservationIgnored var cameraNode: SCNNode!
     @ObservationIgnored private var lastTime: TimeInterval = 0
 
-    private let moveSpeed: Float = 7.0
-    private let cameraOffset = SIMD3<Float>(9, 13, 11)
-    private let cameraSmoothSpeed: Float = 0.08
+    private let moveSpeed: Float = 6.0
+    private let cameraOffset = SIMD3<Float>(10, 14, 12)
+    private let cameraSmoothSpeed: Float = 0.1
 
     init() {
         setupScene()
     }
 
     private func setupScene() {
-        scene.background.contents = UIColor(red: 0.45, green: 0.75, blue: 0.95, alpha: 1.0)
-        scene.fogStartDistance = 30
-        scene.fogEndDistance = 65
-        scene.fogColor = UIColor(red: 0.6, green: 0.8, blue: 0.95, alpha: 1)
+        // Aesthetic background and fog
+        scene.background.contents = UIColor(red: 0.5, green: 0.8, blue: 1.0, alpha: 1.0)
+        scene.fogStartDistance = 40
+        scene.fogEndDistance = 80
+        scene.fogColor = UIColor(red: 0.6, green: 0.85, blue: 1.0, alpha: 1)
 
         setupLighting()
         setupCamera()
@@ -33,33 +34,40 @@ class GameViewModel {
     }
 
     private func setupLighting() {
-        let ambientLight = SCNNode()
-        ambientLight.light = SCNLight()
-        ambientLight.light!.type = .ambient
-        ambientLight.light!.intensity = 600
-        ambientLight.light!.color = UIColor(red: 0.95, green: 0.95, blue: 1.0, alpha: 1)
-        scene.rootNode.addChildNode(ambientLight)
+        // Soft ambient light
+        let ambient = SCNNode()
+        ambient.light = SCNLight()
+        ambient.light?.type = .ambient
+        ambient.light?.intensity = 800
+        ambient.light?.color = UIColor.white
+        scene.rootNode.addChildNode(ambient)
 
-        let sunLight = SCNNode()
-        sunLight.light = SCNLight()
-        sunLight.light!.type = .directional
-        sunLight.light!.intensity = 1100
-        sunLight.light!.color = UIColor(red: 1.0, green: 0.96, blue: 0.88, alpha: 1.0)
-        sunLight.light!.castsShadow = true
-        sunLight.light!.shadowRadius = 3
-        sunLight.light!.shadowSampleCount = 8
-        sunLight.light!.shadowMapSize = CGSize(width: 2048, height: 2048)
-        sunLight.light!.shadowColor = UIColor(white: 0, alpha: 0.25)
-        sunLight.eulerAngles = SCNVector3(-Float.pi / 3, Float.pi / 4, 0)
-        scene.rootNode.addChildNode(sunLight)
+        // Balanced sun light for shadows
+        let sun = SCNNode()
+        sun.light = SCNLight()
+        sun.light?.type = .directional
+        sun.light?.intensity = 1200
+        sun.light?.castsShadow = true
+        sun.light?.shadowRadius = 4
+        sun.light?.shadowSampleCount = 16
+        sun.light?.shadowMapSize = CGSize(width: 4096, height: 4096)
+        sun.light?.shadowColor = UIColor(white: 0, alpha: 0.3)
+        sun.eulerAngles = SCNVector3(-0.8, 0.6, 0)
+        scene.rootNode.addChildNode(sun)
+        
+        // Secondary fill light for meshes
+        let fill = SCNNode()
+        fill.light = SCNLight()
+        fill.light?.type = .directional
+        fill.light?.intensity = 400
+        fill.eulerAngles = SCNVector3(0.5, -0.5, 0)
+        scene.rootNode.addChildNode(fill)
     }
 
     private func setupCamera() {
         cameraNode = SCNNode()
         cameraNode.camera = SCNCamera()
-        cameraNode.camera!.fieldOfView = 50
-        cameraNode.camera!.zNear = 0.1
-        cameraNode.camera!.zFar = 150
+        cameraNode.camera?.fieldOfView = 45
         cameraNode.position = SCNVector3(cameraOffset.x, cameraOffset.y, cameraOffset.z)
         cameraNode.look(at: SCNVector3(0, 0, 0))
         scene.rootNode.addChildNode(cameraNode)
@@ -92,20 +100,13 @@ class GameViewModel {
 
             var worldMove = forward * jy + right * jx
             let moveLen = simd_length(worldMove)
-            if moveLen > 1 {
-                worldMove /= moveLen
-            }
+            if moveLen > 1 { worldMove /= moveLen }
 
             let dx = worldMove.x * moveSpeed * deltaTime
             let dz = worldMove.y * moveSpeed * deltaTime
 
-            var newX = playerNode.position.x + dx
-            var newZ = playerNode.position.z + dz
-            newX = max(-11, min(22, newX))
-            newZ = max(-15, min(20, newZ))
-
-            playerNode.position.x = newX
-            playerNode.position.z = newZ
+            playerNode.position.x += dx
+            playerNode.position.z += dz
 
             let angle = atan2(dx, dz)
             playerNode.eulerAngles.y = angle
@@ -119,13 +120,15 @@ class GameViewModel {
             interactionManager.checkInteractions(player: playerNode, scene: scene)
         }
 
-        let targetX = playerNode.position.x + cameraOffset.x
-        let targetZ = playerNode.position.z + cameraOffset.z
+        // Global interaction check
+        interactionManager.checkInteractions(player: playerNode, scene: scene)
 
-        cameraNode.position.x += (targetX - cameraNode.position.x) * cameraSmoothSpeed
-        cameraNode.position.z += (targetZ - cameraNode.position.z) * cameraSmoothSpeed
-        cameraNode.position.y = cameraOffset.y
-
+        // Cinematic camera tracking
+        let tX = playerNode.position.x + cameraOffset.x
+        let tZ = playerNode.position.z + cameraOffset.z
+        
+        cameraNode.position.x += (tX - cameraNode.position.x) * cameraSmoothSpeed
+        cameraNode.position.z += (tZ - cameraNode.position.z) * cameraSmoothSpeed
         cameraNode.look(at: playerNode.position)
     }
 }
