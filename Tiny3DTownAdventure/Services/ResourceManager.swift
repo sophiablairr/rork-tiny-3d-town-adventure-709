@@ -14,8 +14,8 @@ class ResourceManager {
                 do {
                     let scene = try SCNScene(url: url, options: [
                         .checkConsistency: true,
-                        SCNScene.Attribute.convertToYUp: true
-                    ] as [SCNScene.Attribute: Any])
+                        .convertToYUp: true
+                    ])
                     
                     let wrapperNode = SCNNode()
                     
