@@ -69,6 +69,7 @@ class CharacterLoader {
         wrapper.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
+<<<<<<< HEAD
             guard let geometry = child.geometry else { return }
             for material in geometry.materials {
                 // USDZ uses PBR which needs IBL (env map) to render.
@@ -78,6 +79,33 @@ class CharacterLoader {
                 material.lightingModel = .blinn
                 if !hasDiffuse {
                     material.diffuse.contents = UIColor(red: 0.85, green: 0.75, blue: 0.65, alpha: 1.0)
+=======
+            child.renderingOrder = 100
+            
+            if let geo = child.geometry {
+                for mat in geo.materials {
+                    // Force the lighting model to Blinn (non-PBR) as suggested
+                    mat.lightingModel = .blinn
+                    
+                    // Reset PBR-specific properties that can cause invisibility without IBL
+                    mat.metalness.contents = 0.0
+                    mat.roughness.contents = 1.0
+                    
+                    // Ensure the diffuse (main texture) is at full intensity
+                    mat.diffuse.intensity = 1.0
+                    
+                    // Force visibility and depth settings
+                    mat.isDoubleSided = true
+                    mat.transparency = 1.0
+                    mat.transparencyMode = .aOne 
+                    mat.writesToDepthBuffer = true
+                    mat.readsFromDepthBuffer = true
+                    mat.blendMode = .alpha
+                    
+                    if mat.diffuse.contents == nil {
+                        mat.diffuse.contents = UIColor.systemGray
+                    }
+>>>>>>> 49d0abd (Refined material conversion: forced Blinn lighting and reset PBR properties to solve USDZ invisibility)
                 }
                 material.isDoubleSided = true
             }
@@ -89,6 +117,10 @@ class CharacterLoader {
         print("📐 CharacterLoader: BoundingBox Min:\(min) Max:\(max) Height:\(height)")
 
         if height > 0 {
+<<<<<<< HEAD
+=======
+            // Scale if it's way off
+>>>>>>> 49d0abd (Refined material conversion: forced Blinn lighting and reset PBR properties to solve USDZ invisibility)
             if height > 8 || height < 0.2 {
                 let s = 1.8 / height
                 wrapper.scale = SCNVector3(s, s, s)
