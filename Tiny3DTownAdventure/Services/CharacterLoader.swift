@@ -74,15 +74,24 @@ class CharacterLoader {
             if let geo = child.geometry {
                 for mat in geo.materials {
                     mat.lightingModel = .blinn
+                    
+                    // CLEAR PBR & TRANSPARENCY MAPS
                     mat.metalness.contents = 0.0
                     mat.roughness.contents = 1.0
+                    mat.normal.contents = nil
+                    mat.emission.contents = nil
+                    mat.transparent.contents = nil // Critical: Ensure no alpha map is used
+                    
+                    // FORCE OPAQUE
+                    mat.transparency = 1.0
                     mat.diffuse.intensity = 1.0
                     mat.isDoubleSided = true
-                    mat.transparency = 1.0
-                    mat.transparencyMode = .aOne
                     mat.writesToDepthBuffer = true
                     mat.readsFromDepthBuffer = true
-                    mat.blendMode = .alpha
+                    
+                    // Disable blending to prevent "ghost" rendering
+                    mat.blendMode = .replace
+                    
                     if mat.diffuse.contents == nil {
                         mat.diffuse.contents = UIColor.systemGray
                     }
