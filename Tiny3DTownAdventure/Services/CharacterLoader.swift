@@ -65,22 +65,10 @@ class CharacterLoader {
             wrapper.addChildNode(fallbackNode)
         }
         
-        // --- STEP 3: SANITIZE & SHOW ---
+        // --- STEP 3: ENSURE VISIBILITY ---
         wrapper.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
-            child.renderingOrder = 100 
-            
-            if let geo = child.geometry {
-                // FORCE every single material to be a solid, visible color
-                let debugMaterial = SCNMaterial()
-                debugMaterial.diffuse.contents = UIColor.systemBlue
-                debugMaterial.lightingModel = .constant // No light needed to see this
-                debugMaterial.isDoubleSided = true
-                debugMaterial.transparency = 1.0
-                
-                geo.materials = [debugMaterial] // Replace all materials with one that MUST work
-            }
         }
         
         // --- STEP 4: AUTO-SCALE AND PIVOT TO BOTTOM ---
@@ -98,13 +86,6 @@ class CharacterLoader {
             let centerZ = (max.z + min.z) / 2
             wrapper.pivot = SCNMatrix4MakeTranslation(centerX, min.y, centerZ)
         }
-        
-        // --- STEP 5: DEBUG MARKER ---
-        let marker = SCNNode(geometry: SCNSphere(radius: 0.12))
-        marker.geometry?.firstMaterial?.diffuse.contents = UIColor.red
-        marker.geometry?.firstMaterial?.lightingModel = .constant
-        marker.position = SCNVector3(0, 1.7, 0) 
-        wrapper.addChildNode(marker)
         
         wrapper.position = SCNVector3(0, 0, 0)
         return wrapper
