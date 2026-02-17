@@ -26,39 +26,10 @@ class GameViewModel {
         scene.fogEndDistance = 65
         scene.fogColor = UIColor(red: 0.6, green: 0.8, blue: 0.95, alpha: 1)
 
-        setupEnvironmentLighting()
-
         setupLighting()
         setupCamera()
         TownBuilder.buildTown(in: scene)
         createPlayer()
-    }
-
-    private func setupEnvironmentLighting() {
-        let lightProbe = UIImage(named: "" ) ?? createEnvironmentMap()
-        scene.lightingEnvironment.contents = lightProbe
-        scene.lightingEnvironment.intensity = 1.5
-    }
-
-    private func createEnvironmentMap() -> UIImage {
-        let size = CGSize(width: 128, height: 64)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { ctx in
-            let topColor = UIColor(red: 0.55, green: 0.78, blue: 0.98, alpha: 1)
-            let midColor = UIColor(red: 0.85, green: 0.9, blue: 0.95, alpha: 1)
-            let botColor = UIColor(red: 0.4, green: 0.65, blue: 0.3, alpha: 1)
-            let gradient = CGGradient(
-                colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                colors: [topColor.cgColor, midColor.cgColor, botColor.cgColor] as CFArray,
-                locations: [0.0, 0.5, 1.0]
-            )!
-            ctx.cgContext.drawLinearGradient(
-                gradient,
-                start: CGPoint(x: 0, y: 0),
-                end: CGPoint(x: 0, y: size.height),
-                options: []
-            )
-        }
     }
 
     private func setupLighting() {
@@ -100,44 +71,105 @@ class GameViewModel {
             playerNode = loadedNode
             playerNode.name = "Player"
 
-            // Auto-scale model to a reasonable height (~1.5 units)
-            let (minVec, maxVec) = loadedNode.boundingBox
+            // Compute bounding box from ALL descendants (not just direct children)
+            let (minVec, maxVec) = computeDeepBoundingBox(for: loadedNode)
             let modelHeight = maxVec.y - minVec.y
             let modelWidth = maxVec.x - minVec.x
             let modelDepth = maxVec.z - minVec.z
             let maxDimension = max(modelHeight, max(modelWidth, modelDepth))
+
+            print("📐 Model dimensions: W=\(modelWidth), H=\(modelHeight), D=\(modelDepth)")
+            print("📐 Bounding box min=\(minVec), max=\(maxVec)")
+
+            // Scale to ~1.5 units tall, with safety bounds
             let targetHeight: Float = 1.5
-            let scaleFactor = maxDimension > 0 ? targetHeight / maxDimension : 0.5
+            var scaleFactor: Float = 0.5
+            if maxDimension > 0.001 {
+                scaleFactor = targetHeight / maxDimension
+            }
+            // Clamp scale to reasonable range
+            scaleFactor = min(max(scaleFactor, 0.001), 10.0)
             playerNode.scale = SCNVector3(scaleFactor, scaleFactor, scaleFactor)
 
             // Position so feet are on the ground
             let groundOffset = -minVec.y * scaleFactor
-            playerNode.position = SCNVector3(0, groundOffset, 3)
+            playerNode.position = SCNVector3(0, max(groundOffset, 0), 3)
 
             scene.rootNode.addChildNode(playerNode)
-            print("✅ Character loaded — height=\(modelHeight), scale=\(scaleFactor), groundOffset=\(groundOffset)")
+            print("✅ Character loaded — scale=\(scaleFactor), groundOffset=\(groundOffset)")
             return
         }
 
-        // Fallback to procedural player if no model found
-        print("Using fallback player")
+        // Fallback to large, bright procedural player (impossible to miss)
+        print("⚠️ No model found — using bright fallback player")
         playerNode = SCNNode()
         playerNode.position = SCNVector3(0, 0, 3)
         playerNode.name = "Player"
 
-        let body = SCNCapsule(capRadius: 0.22, height: 0.7)
+        // Large bright body
+        let body = SCNCapsule(capRadius: 0.3, height: 1.0)
         body.firstMaterial?.diffuse.contents = UIColor(red: 0.32, green: 0.62, blue: 0.42, alpha: 1)
+        body.firstMaterial?.lightingModel = .blinn
         let bodyNode = SCNNode(geometry: body)
-        bodyNode.position = SCNVector3(0, 0.6, 0)
+        bodyNode.position = SCNVector3(0, 0.8, 0)
         playerNode.addChildNode(bodyNode)
 
-        let head = SCNSphere(radius: 0.24)
+        // Large bright head
+        let head = SCNSphere(radius: 0.32)
         head.firstMaterial?.diffuse.contents = UIColor(red: 0.96, green: 0.84, blue: 0.72, alpha: 1)
+        head.firstMaterial?.lightingModel = .blinn
         let headNode = SCNNode(geometry: head)
-        headNode.position = SCNVector3(0, 1.2, 0)
+        headNode.position = SCNVector3(0, 1.6, 0)
         playerNode.addChildNode(headNode)
-        
+
         scene.rootNode.addChildNode(playerNode)
+    }
+
+    /// Computes a bounding box that includes ALL descendant geometry
+    private func computeDeepBoundingBox(for node: SCNNode) -> (SCNVector3, SCNVector3) {
+        var globalMin = SCNVector3(Float.greatestFiniteMagnitude, Float.greatestFiniteMagnitude, Float.greatestFiniteMagnitude)
+        var globalMax = SCNVector3(-Float.greatestFiniteMagnitude, -Float.greatestFiniteMagnitude, -Float.greatestFiniteMagnitude)
+        var foundGeometry = false
+
+        func scan(_ n: SCNNode) {
+            if n.geometry != nil {
+                let (localMin, localMax) = n.boundingBox
+                // Transform to parent coordinate space
+                let corners: [SCNVector3] = [
+                    SCNVector3(localMin.x, localMin.y, localMin.z),
+                    SCNVector3(localMax.x, localMin.y, localMin.z),
+                    SCNVector3(localMin.x, localMax.y, localMin.z),
+                    SCNVector3(localMax.x, localMax.y, localMin.z),
+                    SCNVector3(localMin.x, localMin.y, localMax.z),
+                    SCNVector3(localMax.x, localMin.y, localMax.z),
+                    SCNVector3(localMin.x, localMax.y, localMax.z),
+                    SCNVector3(localMax.x, localMax.y, localMax.z),
+                ]
+                for corner in corners {
+                    let world = n.convertPosition(corner, to: node)
+                    globalMin.x = min(globalMin.x, world.x)
+                    globalMin.y = min(globalMin.y, world.y)
+                    globalMin.z = min(globalMin.z, world.z)
+                    globalMax.x = max(globalMax.x, world.x)
+                    globalMax.y = max(globalMax.y, world.y)
+                    globalMax.z = max(globalMax.z, world.z)
+                }
+                foundGeometry = true
+            }
+            for child in n.childNodes {
+                scan(child)
+            }
+        }
+
+        scan(node)
+
+        if !foundGeometry {
+            // No geometry found at all — return a small default box
+            print("⚠️ No geometry found in loaded model!")
+            return (SCNVector3(-0.5, 0, -0.5), SCNVector3(0.5, 1.5, 0.5))
+        }
+
+        return (globalMin, globalMax)
     }
 
     func update(time: TimeInterval) {
