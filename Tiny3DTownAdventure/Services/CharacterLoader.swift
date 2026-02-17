@@ -79,41 +79,33 @@ class CharacterLoader {
                 for oldMat in geo.materials {
                     let newMat = SCNMaterial()
                     
-                    // 1. Copy ONLY the color texture if valid
+                    // 1. LAUNDER THE TEXTURE: Redraw onto opaque context to kill alpha channel
                     let diffuseContent = oldMat.diffuse.contents
-                    print("🎨 Original Diffuse: \(String(describing: diffuseContent)) Type: \(type(of: diffuseContent))")
-                    
                     if let image = diffuseContent as? UIImage {
-                        newMat.diffuse.contents = image
-                        print("✅ Material has UIImage texture")
-                    } else if let color = diffuseContent as? UIColor {
-                        newMat.diffuse.contents = color
-                        print("✅ Material has UIColor")
+                        let size = image.size
+                        UIGraphicsBeginImageContextWithOptions(size, true, 1.0) // OPAQUE
+                        UIColor.black.setFill()
+                        UIRectFill(CGRect(origin: .zero, size: size))
+                        image.draw(in: CGRect(origin: .zero, size: size))
+                        let laundered = UIGraphicsGetImageFromCurrentImageContext()
+                        UIGraphicsEndImageContext()
+                        newMat.diffuse.contents = laundered
+                        print("🧼 Texture Laundered: Stripped Alpha channel")
                     } else if diffuseContent != nil {
-                        // It might be a URL, String (path), or MDLTexture. Assign it directly and hope SceneKit handles it.
                         newMat.diffuse.contents = diffuseContent
-                        print("⚠️ Material has content of type \(type(of: diffuseContent)). Assigning directly.")
                     } else {
-                        // FALLBACK: If nil, use Gray. Do NOT leave nil (which might cause invisibility).
                         newMat.diffuse.contents = UIColor.systemGray
-                        print("⚠️ Material diffuse was NIL. Assigned systemGray fallback.")
                     }
                     
                     // 2. Force Strict Rendering Settings
-                    newMat.lightingModel = .constant // Back to FLAT for safety (Orange test worked with this)
+                    newMat.lightingModel = .constant // Back to FLAT for extreme sanity
                     newMat.isDoubleSided = true
+                    newMat.transparency.contents = UIColor.white // FORCE OPAQUE CHANNEL
                     newMat.transparency = 1.0
                     newMat.transparencyMode = .aOne 
                     newMat.writesToDepthBuffer = true
                     newMat.readsFromDepthBuffer = true
-                    newMat.blendMode = .replace 
-                    
-                    // 3. SUPER NUCLEAR Opacity via Shader 
-                    // Force both the surface diffuse alpha AND the final output alpha
-                    newMat.shaderModifiers = [
-                        .surface: "_surface.diffuse.a = 1.0;",
-                        .fragment: "_output.color.a = 1.0;"
-                    ]
+                    newMat.blendMode = .replace // NO BLENDING
                     
                     newMaterials.append(newMat)
                 }
