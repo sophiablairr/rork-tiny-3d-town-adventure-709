@@ -80,10 +80,10 @@ class CharacterLoader {
                     let newMat = SCNMaterial()
                     
                     // 1. Copy ONLY the color texture
-                    newMat.diffuse.contents = oldMat.diffuse.contents
-                    if newMat.diffuse.contents == nil {
-                        newMat.diffuse.contents = UIColor.systemGray
-                    }
+                    print("🎨 Original Diffuse: \(String(describing: oldMat.diffuse.contents)) Type: \(type(of: oldMat.diffuse.contents))")
+                    
+                    // ORANGE TEST: Force a visible color to rule out texture corruption
+                    newMat.diffuse.contents = UIColor.orange
                     
                     // 2. Force Strict Rendering Settings
                     newMat.lightingModel = .constant // FLAT LIGHTING TEST (Like the blue model)
