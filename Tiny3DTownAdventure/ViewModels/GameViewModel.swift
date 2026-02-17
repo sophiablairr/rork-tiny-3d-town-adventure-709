@@ -5,13 +5,12 @@ import simd
 @Observable
 class GameViewModel {
     var joystickInput: CGPoint = .zero
+    let interactionManager = InteractionManager()
 
     let scene = SCNScene()
     @ObservationIgnored var playerNode: SCNNode!
     @ObservationIgnored var cameraNode: SCNNode!
     @ObservationIgnored private var lastTime: TimeInterval = 0
-    @ObservationIgnored private var leftLegNode: SCNNode!
-    @ObservationIgnored private var rightLegNode: SCNNode!
 
     private let moveSpeed: Float = 7.0
     private let cameraOffset = SIMD3<Float>(9, 13, 11)
@@ -67,8 +66,22 @@ class GameViewModel {
     }
 
     private func createPlayer() {
+        // Try to load user's model first
+        if let loadedNode = ResourceManager.shared.loadCharacter(named: "character") {
+            playerNode = loadedNode
+            playerNode.scale = SCNVector3(0.5, 0.5, 0.5) // Adjust scale as needed
+            // Ensure player is at correct starting position
+            playerNode.position = SCNVector3(0, 0, 3)
+            playerNode.name = "Player"
+            scene.rootNode.addChildNode(playerNode)
+            return
+        }
+
+        // Fallback to procedural player if no model found
+        print("Using fallback player")
         playerNode = SCNNode()
         playerNode.position = SCNVector3(0, 0, 3)
+        playerNode.name = "Player"
 
         let body = SCNCapsule(capRadius: 0.22, height: 0.7)
         body.firstMaterial?.diffuse.contents = UIColor(red: 0.32, green: 0.62, blue: 0.42, alpha: 1)
@@ -81,52 +94,7 @@ class GameViewModel {
         let headNode = SCNNode(geometry: head)
         headNode.position = SCNVector3(0, 1.2, 0)
         playerNode.addChildNode(headNode)
-
-        let hair = SCNSphere(radius: 0.26)
-        hair.firstMaterial?.diffuse.contents = UIColor(red: 0.4, green: 0.22, blue: 0.1, alpha: 1)
-        let hairNode = SCNNode(geometry: hair)
-        hairNode.position = SCNVector3(0, 1.28, -0.04)
-        hairNode.scale = SCNVector3(1, 0.85, 0.95)
-        playerNode.addChildNode(hairNode)
-
-        let eyeGeo = SCNSphere(radius: 0.04)
-        eyeGeo.firstMaterial?.diffuse.contents = UIColor(red: 0.15, green: 0.42, blue: 0.38, alpha: 1)
-        let leftEye = SCNNode(geometry: eyeGeo)
-        leftEye.position = SCNVector3(-0.08, 1.22, 0.2)
-        playerNode.addChildNode(leftEye)
-        let rightEye = SCNNode(geometry: eyeGeo)
-        rightEye.position = SCNVector3(0.08, 1.22, 0.2)
-        playerNode.addChildNode(rightEye)
-
-        let legGeo = SCNCylinder(radius: 0.09, height: 0.35)
-        legGeo.firstMaterial?.diffuse.contents = UIColor(red: 0.18, green: 0.18, blue: 0.24, alpha: 1)
-        leftLegNode = SCNNode(geometry: legGeo)
-        leftLegNode.position = SCNVector3(-0.1, 0.18, 0)
-        playerNode.addChildNode(leftLegNode)
-        rightLegNode = SCNNode(geometry: legGeo)
-        rightLegNode.position = SCNVector3(0.1, 0.18, 0)
-        playerNode.addChildNode(rightLegNode)
-
-        let shoeGeo = SCNSphere(radius: 0.1)
-        shoeGeo.firstMaterial?.diffuse.contents = UIColor(red: 0.55, green: 0.3, blue: 0.15, alpha: 1)
-        let leftShoe = SCNNode(geometry: shoeGeo)
-        leftShoe.position = SCNVector3(-0.1, 0.04, 0.03)
-        leftShoe.scale = SCNVector3(1, 0.6, 1.3)
-        playerNode.addChildNode(leftShoe)
-        let rightShoe = SCNNode(geometry: shoeGeo)
-        rightShoe.position = SCNVector3(0.1, 0.04, 0.03)
-        rightShoe.scale = SCNVector3(1, 0.6, 1.3)
-        playerNode.addChildNode(rightShoe)
-
-        let shadowGeo = SCNPlane(width: 0.6, height: 0.6)
-        shadowGeo.firstMaterial?.diffuse.contents = UIColor(white: 0, alpha: 0.12)
-        shadowGeo.firstMaterial?.lightingModel = .constant
-        shadowGeo.firstMaterial?.writesToDepthBuffer = false
-        let shadowNode = SCNNode(geometry: shadowGeo)
-        shadowNode.eulerAngles.x = -Float.pi / 2
-        shadowNode.position = SCNVector3(0, 0.02, 0)
-        playerNode.addChildNode(shadowNode)
-
+        
         scene.rootNode.addChildNode(playerNode)
     }
 
@@ -171,14 +139,12 @@ class GameViewModel {
 
             let bob = sin(Float(time) * 14) * 0.035
             playerNode.position.y = abs(bob)
+            
+            interactionManager.checkInteractions(player: playerNode, scene: scene)
 
-            let legSwing = sin(Float(time) * 14) * 0.3
-            leftLegNode?.eulerAngles.x = legSwing
-            rightLegNode?.eulerAngles.x = -legSwing
         } else {
             playerNode.position.y = 0
-            leftLegNode?.eulerAngles.x = 0
-            rightLegNode?.eulerAngles.x = 0
+            interactionManager.checkInteractions(player: playerNode, scene: scene)
         }
 
         let targetX = playerNode.position.x + cameraOffset.x

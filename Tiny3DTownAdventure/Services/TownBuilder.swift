@@ -143,25 +143,28 @@ enum TownBuilder {
             position: SCNVector3(-5, 0, 1),
             wallColor: UIColor(red: 0.96, green: 0.82, blue: 0.78, alpha: 1),
             roofColor: UIColor(red: 0.8, green: 0.3, blue: 0.18, alpha: 1),
-            trimColor: UIColor.white
+            trimColor: UIColor.white,
+            name: "House1"
         )
         addHouse(
             to: scene,
             position: SCNVector3(5, 0, 2.5),
             wallColor: UIColor(red: 0.72, green: 0.88, blue: 0.86, alpha: 1),
             roofColor: UIColor(red: 0.78, green: 0.28, blue: 0.2, alpha: 1),
-            trimColor: UIColor(red: 0.92, green: 0.92, blue: 0.95, alpha: 1)
+            trimColor: UIColor(red: 0.92, green: 0.92, blue: 0.95, alpha: 1),
+            name: "House2"
         )
         addHouse(
             to: scene,
             position: SCNVector3(8, 0, -6),
             wallColor: UIColor(red: 0.92, green: 0.88, blue: 0.75, alpha: 1),
             roofColor: UIColor(red: 0.55, green: 0.35, blue: 0.25, alpha: 1),
-            trimColor: UIColor(red: 0.85, green: 0.82, blue: 0.78, alpha: 1)
+            trimColor: UIColor(red: 0.85, green: 0.82, blue: 0.78, alpha: 1),
+            name: "House3"
         )
     }
 
-    private static func addHouse(to scene: SCNScene, position: SCNVector3, wallColor: UIColor, roofColor: UIColor, trimColor: UIColor) {
+    private static func addHouse(to scene: SCNScene, position: SCNVector3, wallColor: UIColor, roofColor: UIColor, trimColor: UIColor, name: String) {
         let houseNode = SCNNode()
         houseNode.position = position
 
@@ -187,6 +190,7 @@ enum TownBuilder {
         door.firstMaterial?.diffuse.contents = UIColor(red: 0.55, green: 0.38, blue: 0.2, alpha: 1)
         let doorNode = SCNNode(geometry: door)
         doorNode.position = SCNVector3(0, 0.65, 1.28)
+        doorNode.name = "Door_" + name
         houseNode.addChildNode(doorNode)
 
         let doorFrame = SCNBox(width: 0.65, height: 1.0, length: 0.04, chamferRadius: 0)
