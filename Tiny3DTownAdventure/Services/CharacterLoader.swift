@@ -21,14 +21,15 @@ class CharacterLoader {
         
         print("✅ CharacterLoader: Loading '\(url.lastPathComponent)'")
         
-        do {
-            // 2. Load the scene
-            // Using SCNReferenceNode is often better for USDZ as it keeps links alive
-            let refNode = SCNReferenceNode(url: url)
-            refNode.load()
-            
-            let wrapper = SCNNode()
-            wrapper.addChildNode(refNode)
+        // 2. Load the scene
+        guard let refNode = SCNReferenceNode(url: url) else {
+            print("❌ CharacterLoader: Failed to create SCNReferenceNode from '\(url.lastPathComponent)'")
+            return nil
+        }
+        refNode.load()
+        
+        let wrapper = SCNNode()
+        wrapper.addChildNode(refNode)
             
             // 3. Fix visibility and materials
             // AI models often have weird material settings (metallic=1, etc)
@@ -74,10 +75,6 @@ class CharacterLoader {
                 wrapper.position.y = yOffset
             }
             
-            return wrapper
-        } catch {
-            print("❌ CharacterLoader: Failed to load scene: \(error)")
-            return nil
-        }
+        return wrapper
     }
 }
