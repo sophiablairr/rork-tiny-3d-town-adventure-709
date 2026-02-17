@@ -145,22 +145,35 @@ enum CharacterBuilder {
     // MARK: - Walk Animation
 
     static func addWalkAnimation(to playerNode: SCNNode, isMoving: Bool, time: TimeInterval) {
-        let swingAngle: Float = isMoving ? 0.4 : 0
         let speed: Float = 10
-
-        let leftLeg = playerNode.childNode(withName: "LeftLeg", recursively: false)
-        let rightLeg = playerNode.childNode(withName: "RightLeg", recursively: false)
-        let leftArm = playerNode.childNode(withName: "LeftArm", recursively: false)
-        let rightArm = playerNode.childNode(withName: "RightArm", recursively: false)
-
         let phase = Float(time) * speed
-        let legSwing = sin(phase) * swingAngle
-        let armSwing = sin(phase) * swingAngle * 0.7
+        
+        let leftLeg = playerNode.childNode(withName: "LeftLeg", recursively: true)
+        let rightLeg = playerNode.childNode(withName: "RightLeg", recursively: true)
+        let leftArm = playerNode.childNode(withName: "LeftArm", recursively: true)
+        let rightArm = playerNode.childNode(withName: "RightArm", recursively: true)
 
-        leftLeg?.eulerAngles.x = legSwing
-        rightLeg?.eulerAngles.x = -legSwing
-        leftArm?.eulerAngles.x = -armSwing
-        rightArm?.eulerAngles.x = armSwing
+        if leftLeg != nil || rightLeg != nil {
+            // Traditional limb animation
+            let swingAngle: Float = isMoving ? 0.4 : 0
+            let legSwing = sin(phase) * swingAngle
+            let armSwing = sin(phase) * swingAngle * 0.7
+
+            leftLeg?.eulerAngles.x = legSwing
+            rightLeg?.eulerAngles.x = -legSwing
+            leftArm?.eulerAngles.x = -armSwing
+            rightArm?.eulerAngles.x = armSwing
+        } else if isMoving {
+            // Fallback: Simple bobbing/wobbling for USDZ or single-mesh models
+            let bob = sin(phase * 1.5) * 0.05
+            let wobble = cos(phase) * 0.05
+            playerNode.position.y = 0 + bob // Pivot is at bottom
+            playerNode.eulerAngles.z = wobble
+        } else {
+            // Reset
+            playerNode.eulerAngles.z = 0
+            playerNode.position.y = 0
+        }
     }
 
     // MARK: - Helpers

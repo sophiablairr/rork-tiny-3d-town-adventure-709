@@ -74,19 +74,10 @@ class GameViewModel {
     }
 
     private func createPlayer() {
-        // Try custom USDZ first
-        if let customPlayer = CharacterLoader.load(named: "character") {
-            playerNode = customPlayer
-            playerNode.position = SCNVector3(0, 0, 3)
-            scene.rootNode.addChildNode(playerNode)
-        } else {
-            // Fallback: BRIGHT RED BOX so we know it failed
-            let box = SCNBox(width: 1, height: 2, length: 1, chamferRadius: 0)
-            box.firstMaterial?.diffuse.contents = UIColor.red
-            playerNode = SCNNode(geometry: box)
-            playerNode.position = SCNVector3(0, 0, 3)
-            scene.rootNode.addChildNode(playerNode)
-        }
+        // CharacterLoader now handles everything: loading, scaling, and the neon fallback if file is missing.
+        playerNode = CharacterLoader.load(named: "character") ?? SCNNode() 
+        playerNode.position = SCNVector3(0, 0, 3)
+        scene.rootNode.addChildNode(playerNode)
     }
 
     func update(time: TimeInterval) {

@@ -3,11 +3,7 @@ import SwiftUI
 
 class CharacterLoader {
     static func load(named name: String) -> SCNNode? {
-        // --- DEBUG: LOG BUNDLE CONTENTS ---
-        if let resourcePath = Bundle.main.resourcePath {
-            let files = (try? FileManager.default.contentsOfDirectory(atPath: resourcePath)) ?? []
-            print("📁 Bundle files: \(files.joined(separator: ", "))")
-        }
+        print("🔍 CharacterLoader: Attempting to load '\(name)'")
         
         let extensions = ["usdz", "scn", "dae", "obj"]
         var modelUrl: URL? = nil
@@ -19,103 +15,87 @@ class CharacterLoader {
             }
         }
         
-        guard let url = modelUrl else {
-            print("❌ CharacterLoader: File '\(name)' NOT found in bundle.")
-            return nil
-        }
-        
-        print("✅ CharacterLoader: Found '\(url.lastPathComponent)'. Attempting to load...")
-        
+        // --- STEP 1: LOAD THE NODE ---
         let wrapper = SCNNode()
         wrapper.name = "CharacterRoot"
         
-        // --- STRATEGY 1: SCNReferenceNode (Recommended for USDZ) ---
-        print("🔄 Loading Strategy 1: SCNReferenceNode")
-        if let refNode = SCNReferenceNode(url: url) {
-            refNode.load()
-            if refNode.childNodes.count > 0 || refNode.geometry != nil {
-                print("✅ Strategy 1 Success!")
-                wrapper.addChildNode(refNode)
-            }
-        }
-        
-        if wrapper.childNodes.count == 0 {
-            print("⚠️ Strategy 1 failed, trying Strategy 2...")
+        if let url = modelUrl {
+            print("✅ Found file at \(url.lastPathComponent). Loading...")
             
-            // --- STRATEGY 2: SCNScene(url:options:) ---
-            print("🔄 Loading Strategy 2: SCNScene(url:)")
-            do {
-                let scene = try SCNScene(url: url, options: nil)
+            // Try Scene(named:) first as it's the most common for bundled assets
+            let fullName = "\(name).\(url.pathExtension)"
+            if let scene = SCNScene(named: fullName) {
                 for child in scene.rootNode.childNodes {
                     wrapper.addChildNode(child.clone())
                 }
-                if wrapper.childNodes.count > 0 {
-                    print("✅ Strategy 2 Success!")
-                } else {
-                    print("⚠️ Strategy 2 yielded no nodes, trying Strategy 3...")
-                }
-            } catch {
-                print("❌ Strategy 2 Error: \(error)")
             }
             
-            // --- STRATEGY 3: SCNScene(named:) ---
-            if wrapper.childNodes.count == 0 {
-                let fullName = "\(name).\(url.pathExtension)"
-                print("🔄 Loading Strategy 3: SCNScene(named: '\(fullName)')")
-                if let scene = SCNScene(named: fullName) {
+            // Strategy 2: Reference Node
+            if wrapper.childNodes.isEmpty {
+                if let refNode = SCNReferenceNode(url: url) {
+                    refNode.load()
+                    wrapper.addChildNode(refNode)
+                }
+            }
+            
+            // Strategy 3: URL Direct
+            if wrapper.childNodes.isEmpty {
+                if let scene = try? SCNScene(url: url, options: nil) {
                     for child in scene.rootNode.childNodes {
                         wrapper.addChildNode(child.clone())
                     }
-                    if wrapper.childNodes.count > 0 {
-                        print("✅ Strategy 3 Success!")
-                    }
                 }
             }
         }
         
-        guard wrapper.childNodes.count > 0 else {
-            print("❌ CharacterLoader: All strategies failed to load any geometry for '\(name)'")
-            return nil
+        // --- STEP 2: FALLBACK IF EMPTY ---
+        if wrapper.childNodes.isEmpty {
+            print("⚠️ CharacterLoader: All file strategies failed. Creating NEON FALLBACK.")
+            let capsule = SCNCapsule(capRadius: 0.4, height: 1.8)
+            // NEON GREEN - Impossible to miss
+            let material = SCNMaterial()
+            material.diffuse.contents = UIColor.green
+            material.emission.contents = UIColor.green
+            material.lightingModel = .constant
+            capsule.firstMaterial = material
+            
+            let fallbackNode = SCNNode(geometry: capsule)
+            fallbackNode.name = "FALLBACK_NODE"
+            fallbackNode.position = SCNVector3(0, 0.9, 0) // Center of 1.8m height
+            wrapper.addChildNode(fallbackNode)
         }
         
-        // --- FIX VISIBILITY & MATERIALS ---
-        print("🛠 Fixing materials and visibility for \(wrapper.childNodes.count) child nodes")
+        // --- STEP 3: SANITIZE & SHOW ---
         wrapper.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
-            
             if let geo = child.geometry {
                 for mat in geo.materials {
-                    mat.isDoubleSided = true
                     mat.transparency = 1.0
-                    mat.lightingModel = .blinn // More reliable than PBR
-                    mat.metalness.intensity = 0.0 // Avoid invisible metallic surfaces
-                    mat.roughness.intensity = 0.5
                     if mat.diffuse.contents == nil {
-                        mat.diffuse.contents = UIColor.systemGray3
+                        mat.diffuse.contents = UIColor.systemPink // Another debug color
                     }
                 }
             }
         }
         
-        // --- AUTO-SCALE & CENTER ---
-        let (minV, maxV) = wrapper.boundingBox
-        let height = maxV.y - minV.y
-        let width = maxV.x - minV.x
-        let depth = maxV.z - minV.z
-        let largestDim = max(height, max(width, depth))
-        
-        print("📐 Loaded mesh dims: W=\(width), H=\(height), D=\(depth)")
-        
-        if largestDim > 0 {
-            let targetHeight: Float = 1.8
-            let scale = targetHeight / largestDim
-            wrapper.scale = SCNVector3(scale, scale, scale)
-            let yOffset = -minV.y * scale
-            wrapper.position.y = yOffset
-            print("📐 Applied scale: \(scale), ground offset: \(yOffset)")
+        // --- STEP 4: AUTO-SCALE AND PIVOT TO BOTTOM ---
+        let (min, max) = wrapper.boundingBox
+        let height = max.y - min.y
+        if height > 0 {
+            // Scale to approx 1.8m if it's too huge or tiny
+            if height > 10 || height < 0.1 {
+                let s = 1.8 / height
+                wrapper.scale = SCNVector3(s, s, s)
+            }
+            
+            // Adjust pivot to bottom center
+            let centerX = (max.x + min.x) / 2
+            let centerZ = (max.z + min.z) / 2
+            wrapper.pivot = SCNMatrix4MakeTranslation(centerX, min.y, centerZ)
         }
         
+        wrapper.position = SCNVector3(0, 0, 0)
         return wrapper
     }
 }
