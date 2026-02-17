@@ -114,20 +114,8 @@ class GameViewModel {
             let groundOffset = -minVec.y * scaleFactor
             playerNode.position = SCNVector3(0, groundOffset, 3)
 
-            playerNode.enumerateChildNodes { (child, _) in
-                child.geometry?.materials.forEach { material in
-                    material.isDoubleSided = true
-                    material.lightingModel = .physicallyBased
-                    if material.diffuse.contents == nil {
-                        material.diffuse.contents = UIColor(red: 0.8, green: 0.7, blue: 0.6, alpha: 1)
-                    }
-                    material.metalness.intensity = min(material.metalness.intensity, 0.3)
-                    material.roughness.contents = material.roughness.contents ?? NSNumber(value: 0.6)
-                }
-            }
-
             scene.rootNode.addChildNode(playerNode)
-            print("Loaded character model: height=\(modelHeight), scale=\(scaleFactor)")
+            print("✅ Character loaded — height=\(modelHeight), scale=\(scaleFactor), groundOffset=\(groundOffset)")
             return
         }
 
