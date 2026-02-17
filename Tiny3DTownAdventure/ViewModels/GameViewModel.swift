@@ -26,6 +26,10 @@ class GameViewModel {
         scene.fogEndDistance = 65
         scene.fogColor = UIColor(red: 0.6, green: 0.8, blue: 0.95, alpha: 1)
 
+        // Environment lighting is required for PBR/metallic USDZ materials to render
+        scene.lightingEnvironment.contents = UIColor(red: 0.6, green: 0.8, blue: 0.95, alpha: 1)
+        scene.lightingEnvironment.intensity = 2.0
+
         setupLighting()
         setupCamera()
         TownBuilder.buildTown(in: scene)
@@ -69,11 +73,34 @@ class GameViewModel {
         // Try to load user's model first
         if let loadedNode = ResourceManager.shared.loadCharacter(named: "character") {
             playerNode = loadedNode
-            playerNode.scale = SCNVector3(0.5, 0.5, 0.5) // Adjust scale as needed
-            // Ensure player is at correct starting position
-            playerNode.position = SCNVector3(0, 0, 3)
             playerNode.name = "Player"
+
+            // Auto-scale model to a reasonable height (~1.5 units)
+            let (minVec, maxVec) = loadedNode.boundingBox
+            let modelHeight = maxVec.y - minVec.y
+            let modelWidth = maxVec.x - minVec.x
+            let modelDepth = maxVec.z - minVec.z
+            let maxDimension = max(modelHeight, max(modelWidth, modelDepth))
+            let targetHeight: Float = 1.5
+            let scaleFactor = maxDimension > 0 ? targetHeight / maxDimension : 0.5
+            playerNode.scale = SCNVector3(scaleFactor, scaleFactor, scaleFactor)
+
+            // Position so feet are on the ground
+            let groundOffset = -minVec.y * scaleFactor
+            playerNode.position = SCNVector3(0, groundOffset, 3)
+
+            // Force materials to render with Blinn lighting as fallback
+            // (some PBR materials don't render without full IBL setup)
+            playerNode.enumerateChildNodes { (child, _) in
+                child.geometry?.materials.forEach { material in
+                    if material.lightingModel == .physicallyBased {
+                        material.lightingModel = .blinn
+                    }
+                }
+            }
+
             scene.rootNode.addChildNode(playerNode)
+            print("Loaded character model: height=\(modelHeight), scale=\(scaleFactor)")
             return
         }
 
