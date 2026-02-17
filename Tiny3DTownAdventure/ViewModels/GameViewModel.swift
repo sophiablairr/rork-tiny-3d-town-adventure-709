@@ -26,14 +26,39 @@ class GameViewModel {
         scene.fogEndDistance = 65
         scene.fogColor = UIColor(red: 0.6, green: 0.8, blue: 0.95, alpha: 1)
 
-        // Environment lighting is required for PBR/metallic USDZ materials to render
-        scene.lightingEnvironment.contents = UIColor(red: 0.6, green: 0.8, blue: 0.95, alpha: 1)
-        scene.lightingEnvironment.intensity = 2.0
+        setupEnvironmentLighting()
 
         setupLighting()
         setupCamera()
         TownBuilder.buildTown(in: scene)
         createPlayer()
+    }
+
+    private func setupEnvironmentLighting() {
+        let lightProbe = UIImage(named: "" ) ?? createEnvironmentMap()
+        scene.lightingEnvironment.contents = lightProbe
+        scene.lightingEnvironment.intensity = 1.5
+    }
+
+    private func createEnvironmentMap() -> UIImage {
+        let size = CGSize(width: 128, height: 64)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            let topColor = UIColor(red: 0.55, green: 0.78, blue: 0.98, alpha: 1)
+            let midColor = UIColor(red: 0.85, green: 0.9, blue: 0.95, alpha: 1)
+            let botColor = UIColor(red: 0.4, green: 0.65, blue: 0.3, alpha: 1)
+            let gradient = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [topColor.cgColor, midColor.cgColor, botColor.cgColor] as CFArray,
+                locations: [0.0, 0.5, 1.0]
+            )!
+            ctx.cgContext.drawLinearGradient(
+                gradient,
+                start: CGPoint(x: 0, y: 0),
+                end: CGPoint(x: 0, y: size.height),
+                options: []
+            )
+        }
     }
 
     private func setupLighting() {
@@ -89,13 +114,15 @@ class GameViewModel {
             let groundOffset = -minVec.y * scaleFactor
             playerNode.position = SCNVector3(0, groundOffset, 3)
 
-            // Force materials to render with Blinn lighting as fallback
-            // (some PBR materials don't render without full IBL setup)
             playerNode.enumerateChildNodes { (child, _) in
                 child.geometry?.materials.forEach { material in
-                    if material.lightingModel == .physicallyBased {
-                        material.lightingModel = .blinn
+                    material.isDoubleSided = true
+                    material.lightingModel = .physicallyBased
+                    if material.diffuse.contents == nil {
+                        material.diffuse.contents = UIColor(red: 0.8, green: 0.7, blue: 0.6, alpha: 1)
                     }
+                    material.metalness.intensity = min(material.metalness.intensity, 0.3)
+                    material.roughness.contents = material.roughness.contents ?? NSNumber(value: 0.6)
                 }
             }
 
