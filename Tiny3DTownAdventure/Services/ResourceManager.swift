@@ -69,53 +69,33 @@ class ResourceManager {
     
     private func fixMaterials(on node: SCNNode) {
         node.enumerateChildNodes { (child, _) in
-            // Ensure node is visible
             child.isHidden = false
             child.opacity = 1.0
             child.castsShadow = true
             
             guard let geometry = child.geometry else { return }
-            
-            for material in geometry.materials {
-                // Force double-sided rendering (fixes flipped normals)
-                material.isDoubleSided = true
-                
-                // Ensure full opacity
-                material.transparency = 1.0
-                material.blendMode = .replace
-                
-                // Use Blinn lighting — works without HDR environment maps
-                material.lightingModel = .blinn
-                
-                // Assign a visible diffuse color if none exists
-                if material.diffuse.contents == nil {
-                    material.diffuse.contents = UIColor(red: 0.85, green: 0.75, blue: 0.65, alpha: 1.0)
-                }
-                
-                // Zero out metalness — high metalness with no environment = invisible
-                material.metalness.contents = UIColor.black
-                material.metalness.intensity = 0
-                
-                // Set reasonable roughness
-                material.roughness.contents = UIColor.gray
-                material.roughness.intensity = 0.8
-                
-                // Clear any ambient occlusion that might darken everything
-                material.ambientOcclusion.contents = nil
-            }
+            self.fixGeometryMaterials(geometry)
         }
         
-        // Also fix the node itself if it has geometry
         if let geometry = node.geometry {
-            for material in geometry.materials {
-                material.isDoubleSided = true
-                material.transparency = 1.0
-                material.lightingModel = .blinn
-                if material.diffuse.contents == nil {
-                    material.diffuse.contents = UIColor(red: 0.85, green: 0.75, blue: 0.65, alpha: 1.0)
-                }
-                material.metalness.contents = UIColor.black
-                material.metalness.intensity = 0
+            fixGeometryMaterials(geometry)
+        }
+        node.isHidden = false
+        node.opacity = 1.0
+    }
+    
+    private func fixGeometryMaterials(_ geometry: SCNGeometry) {
+        for material in geometry.materials {
+            material.isDoubleSided = true
+            material.transparency = 1.0
+            
+            if material.lightingModel == .physicallyBased {
+                material.metalness.intensity = min(material.metalness.intensity, 0.3)
+                material.roughness.intensity = max(material.roughness.intensity, 0.5)
+            }
+            
+            if material.diffuse.contents == nil {
+                material.diffuse.contents = UIColor(red: 0.85, green: 0.75, blue: 0.65, alpha: 1.0)
             }
         }
     }
