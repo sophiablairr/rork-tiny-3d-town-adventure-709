@@ -69,21 +69,17 @@ class CharacterLoader {
         wrapper.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
-            child.renderingOrder = 100 // Ensure it's rendered after most things
+            child.renderingOrder = 100 
             
             if let geo = child.geometry {
-                for mat in geo.materials {
-                    mat.lightingModel = .blinn // More resilient than PBR
-                    mat.isDoubleSided = true   // Fix one-sided/inverted normals
-                    mat.transparency = 1.0
-                    mat.transparencyMode = .aOne
-                    mat.writesToDepthBuffer = true
-                    mat.readsFromDepthBuffer = true
-                    
-                    if mat.diffuse.contents == nil {
-                        mat.diffuse.contents = UIColor.systemPink 
-                    }
-                }
+                // FORCE every single material to be a solid, visible color
+                let debugMaterial = SCNMaterial()
+                debugMaterial.diffuse.contents = UIColor.systemBlue
+                debugMaterial.lightingModel = .constant // No light needed to see this
+                debugMaterial.isDoubleSided = true
+                debugMaterial.transparency = 1.0
+                
+                geo.materials = [debugMaterial] // Replace all materials with one that MUST work
             }
         }
         
@@ -93,25 +89,21 @@ class CharacterLoader {
         print("📐 CharacterLoader: BoundingBox Min:\(min) Max:\(max) Height:\(height)")
 
         if height > 0 {
-            // Scale if it's way off
-            if height > 10 || height < 0.1 {
+            if height > 8 || height < 0.2 {
                 let s = 1.8 / height
                 wrapper.scale = SCNVector3(s, s, s)
-                print("📐 Applied auto-scale: \(s)")
             }
             
-            // Adjust pivot to bottom center
             let centerX = (max.x + min.x) / 2
             let centerZ = (max.z + min.z) / 2
             wrapper.pivot = SCNMatrix4MakeTranslation(centerX, min.y, centerZ)
         }
         
         // --- STEP 5: DEBUG MARKER ---
-        // A small red sphere will appear where the character's head should be.
-        let marker = SCNNode(geometry: SCNSphere(radius: 0.15))
+        let marker = SCNNode(geometry: SCNSphere(radius: 0.12))
         marker.geometry?.firstMaterial?.diffuse.contents = UIColor.red
         marker.geometry?.firstMaterial?.lightingModel = .constant
-        marker.position = SCNVector3(0, 1.7, 0) // Near head height
+        marker.position = SCNVector3(0, 1.7, 0) 
         wrapper.addChildNode(marker)
         
         wrapper.position = SCNVector3(0, 0, 0)
