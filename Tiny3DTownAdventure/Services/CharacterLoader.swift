@@ -75,22 +75,27 @@ class CharacterLoader {
                 for mat in geo.materials {
                     mat.lightingModel = .blinn
                     
-                    // CLEAR PBR & TRANSPARENCY MAPS
+                    // NUCLEAR OPTION: Shader Modifier to FORCE Opacity
+                    // This tells the GPU: "Ignore whatever alpha you calculated, set it to 1.0"
+                    mat.shaderModifiers = [.fragment: "_output.color.a = 1.0;"]
+                    
+                    // Clear EVERY possible map that could affect look
                     mat.metalness.contents = 0.0
                     mat.roughness.contents = 1.0
                     mat.normal.contents = nil
                     mat.emission.contents = nil
-                    mat.transparent.contents = nil // Critical: Ensure no alpha map is used
+                    mat.transparent.contents = nil 
+                    mat.ambientOcclusion.contents = nil
+                    mat.selfIllumination.contents = nil
                     
-                    // FORCE OPAQUE
+                    // Standard Opaque Settings
                     mat.transparency = 1.0
-                    mat.diffuse.intensity = 1.0
                     mat.isDoubleSided = true
                     mat.writesToDepthBuffer = true
                     mat.readsFromDepthBuffer = true
                     
-                    // Disable blending to prevent "ghost" rendering
-                    mat.blendMode = .replace
+                    // reset blend mode to standard alpha (with alpha=1, this is opaque)
+                    mat.blendMode = .alpha 
                     
                     if mat.diffuse.contents == nil {
                         mat.diffuse.contents = UIColor.systemGray
