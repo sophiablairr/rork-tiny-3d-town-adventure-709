@@ -69,11 +69,19 @@ class CharacterLoader {
         wrapper.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
+            child.renderingOrder = 100 // Ensure it's rendered after most things
+            
             if let geo = child.geometry {
                 for mat in geo.materials {
+                    mat.lightingModel = .blinn // More resilient than PBR
+                    mat.isDoubleSided = true   // Fix one-sided/inverted normals
                     mat.transparency = 1.0
+                    mat.transparencyMode = .aOne
+                    mat.writesToDepthBuffer = true
+                    mat.readsFromDepthBuffer = true
+                    
                     if mat.diffuse.contents == nil {
-                        mat.diffuse.contents = UIColor.systemPink // Another debug color
+                        mat.diffuse.contents = UIColor.systemPink 
                     }
                 }
             }
@@ -82,11 +90,14 @@ class CharacterLoader {
         // --- STEP 4: AUTO-SCALE AND PIVOT TO BOTTOM ---
         let (min, max) = wrapper.boundingBox
         let height = max.y - min.y
+        print("📐 CharacterLoader: BoundingBox Min:\(min) Max:\(max) Height:\(height)")
+
         if height > 0 {
-            // Scale to approx 1.8m if it's too huge or tiny
+            // Scale if it's way off
             if height > 10 || height < 0.1 {
                 let s = 1.8 / height
                 wrapper.scale = SCNVector3(s, s, s)
+                print("📐 Applied auto-scale: \(s)")
             }
             
             // Adjust pivot to bottom center
@@ -94,6 +105,14 @@ class CharacterLoader {
             let centerZ = (max.z + min.z) / 2
             wrapper.pivot = SCNMatrix4MakeTranslation(centerX, min.y, centerZ)
         }
+        
+        // --- STEP 5: DEBUG MARKER ---
+        // A small red sphere will appear where the character's head should be.
+        let marker = SCNNode(geometry: SCNSphere(radius: 0.15))
+        marker.geometry?.firstMaterial?.diffuse.contents = UIColor.red
+        marker.geometry?.firstMaterial?.lightingModel = .constant
+        marker.position = SCNVector3(0, 1.7, 0) // Near head height
+        wrapper.addChildNode(marker)
         
         wrapper.position = SCNVector3(0, 0, 0)
         return wrapper
