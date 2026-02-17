@@ -31,13 +31,16 @@ class CharacterLoader {
         
         // --- STRATEGY 1: SCNReferenceNode (Recommended for USDZ) ---
         print("🔄 Loading Strategy 1: SCNReferenceNode")
-        let refNode = SCNReferenceNode(url: url)
-        refNode.load()
-        if refNode.childNodes.count > 0 || refNode.geometry != nil {
-            print("✅ Strategy 1 Success!")
-            wrapper.addChildNode(refNode)
-        } else {
-            print("⚠️ Strategy 1 failed (empty node), trying Strategy 2...")
+        if let refNode = SCNReferenceNode(url: url) {
+            refNode.load()
+            if refNode.childNodes.count > 0 || refNode.geometry != nil {
+                print("✅ Strategy 1 Success!")
+                wrapper.addChildNode(refNode)
+            }
+        }
+        
+        if wrapper.childNodes.count == 0 {
+            print("⚠️ Strategy 1 failed, trying Strategy 2...")
             
             // --- STRATEGY 2: SCNScene(url:options:) ---
             print("🔄 Loading Strategy 2: SCNScene(url:)")
