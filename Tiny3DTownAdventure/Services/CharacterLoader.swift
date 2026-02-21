@@ -24,62 +24,49 @@ class CharacterLoader {
         if let url = modelUrl {
             print("📦 [CharacterLoader] FILE FOUND: \(url.path)")
             
-            // Strategy 0: ModelIO (for .glb support)
-            if url.pathExtension.lowercased() == "glb" {
-                let asset = MDLAsset(url: url)
-                asset.loadTextures()
-                let scene = SCNScene(mdlAsset: asset)
-                
-                print("📦 [GLB] Node count in scene: \(scene.rootNode.childNodes.count)")
+            // Strategy 0: ModelIO (Robust loading for GLB and USDZ)
+            let asset = MDLAsset(url: url)
+            asset.loadTextures()
+            let scene = SCNScene(mdlAsset: asset)
+            
+            if scene.rootNode.childNodes.count > 0 {
+                print("✅ [Strategy: ModelIO] SUCCESS. Nodes: \(scene.rootNode.childNodes.count)")
                 for child in scene.rootNode.childNodes {
                     wrapper.addChildNode(child.clone())
                 }
             }
             
-            // Strategy 1: Scene(named:)
+            // Strategy 1: Scene(named:) fallback
             if wrapper.childNodes.isEmpty {
                 let fullName = "\(name).\(url.pathExtension)"
                 if let scene = SCNScene(named: fullName) {
-                    print("📦 [SceneNamed] SUCCESS")
-                    for child in scene.rootNode.childNodes {
-                        wrapper.addChildNode(child.clone())
-                    }
-                }
-            }
-            
-            // Strategy 2: URL Direct
-            if wrapper.childNodes.isEmpty {
-                if let scene = try? SCNScene(url: url, options: nil) {
-                    print("📦 [SCNSceneURL] SUCCESS")
+                    print("✅ [Strategy: SceneNamed] SUCCESS")
                     for child in scene.rootNode.childNodes {
                         wrapper.addChildNode(child.clone())
                     }
                 }
             }
         } else {
-            print("❌ [CharacterLoader] NO FILE FOUND matching '\(name)' with extensions \(extensions)")
+            print("❌ [CharacterLoader] NO FILE FOUND matching '\(name)'")
         }
         
         // --- STEP 1.5: DEBUG MARKER (RED BALL) ---
-        // This will always be at the character's pivot point.
-        // If you see this but No character, the model is invisible.
-        // If you see nothing, the whole character is missing/far away.
-        let debugMarker = SCNNode(geometry: SCNSphere(radius: 0.1))
+        let debugMarker = SCNNode(geometry: SCNSphere(radius: 0.05))
         debugMarker.geometry?.firstMaterial?.diffuse.contents = UIColor.red
         debugMarker.geometry?.firstMaterial?.lightingModel = .constant
         debugMarker.name = "DEBUG_MARKER"
         wrapper.addChildNode(debugMarker)
         
         // --- STEP 2: FALLBACK IF EMPTY ---
-        if wrapper.childNodes.count <= 1 { // Only the debug marker
-            print("⚠️ [CharacterLoader] EMPTY LOAD. Using Fallback Pill.")
-            let capsule = SCNCapsule(capRadius: 0.3, height: 1.6)
+        if wrapper.childNodes.count <= 1 {
+            print("⚠️ [CharacterLoader] EMPTY LOAD. Showing Small Fallback Pill.")
+            let capsule = SCNCapsule(capRadius: 0.2, height: 1.0)
             let material = SCNMaterial()
             material.diffuse.contents = UIColor.green
             material.lightingModel = .constant
             capsule.firstMaterial = material
             let fallbackNode = SCNNode(geometry: capsule)
-            fallbackNode.position = SCNVector3(0, 0.8, 0)
+            fallbackNode.position = SCNVector3(0, 0.5, 0)
             wrapper.addChildNode(fallbackNode)
         }
         
