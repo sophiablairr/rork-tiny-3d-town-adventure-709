@@ -69,42 +69,45 @@ class CharacterLoader {
         let textureName = "player_texture"
         let textureImage = UIImage(named: textureName) ?? (Bundle.main.url(forResource: textureName, withExtension: "png").flatMap { UIImage(contentsOfFile: $0.path) })
 
+        print("🛠️ CharacterLoader: Starting Ultra-Fix Material Nuke...")
+        
         wrapper.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
-            // SUPER HIGH rendering order to prevent "ghosting" through fog/other objects
-            child.renderingOrder = 1000 
+            child.renderingOrder = 2000 // Even higher
             
             if let geo = child.geometry {
+                print("📦 Node '\(child.name ?? "unnamed")' has geometry with \(geo.materials.count) materials.")
                 var newMaterials: [SCNMaterial] = []
                 
-                for _ in geo.materials {
+                for i in 0..<geo.materials.count {
                     let newMat = SCNMaterial()
+                    newMat.name = "OpaqueFix_\(i)"
                     
                     if let image = textureImage {
                         newMat.diffuse.contents = image
-                        print("🎨 SUCCESS: Applied texture '\(textureName)'")
+                        print("   ✅ Applied texture to material \(i)")
                     } else {
-                        // VIBRANT PINK fallback so we KNOW if the texture failed to load
-                        newMat.diffuse.contents = UIColor.systemPink
-                        print("⚠️ WARNING: Texture '\(textureName)' MISSING! Check file name/extensions.")
+                        // Diagnostic MAGENTA - Impossible to ignore
+                        newMat.diffuse.contents = UIColor.magenta
+                        print("   ⚠️ MISSING TEXTURE - Falling back to Magenta for material \(i)")
                     }
                     
-                    // Kill ALL transparency logic
-                    newMat.transparent.contents = nil
+                    // LIGHTING: Lambert is safer than PBR if env is missing
+                    newMat.lightingModel = .lambert 
+                    
+                    // TRANSPARENCY: Kill it with fire
                     newMat.transparency = 1.0
+                    newMat.transparent.contents = nil
                     newMat.transparencyMode = .aOne
+                    newMat.blendMode = .replace // Force Overwrite
                     
-                    // High quality but stable lighting
-                    newMat.lightingModel = .physicallyBased
-                    newMat.roughness.contents = 0.5
-                    newMat.metalness.contents = 0.0
-                    
-                    // Force Depth Writing (The anti-ghosting secret)
+                    // DEPTH: Ensure solid presence
                     newMat.writesToDepthBuffer = true
                     newMat.readsFromDepthBuffer = true
-                    newMat.isDoubleSided = false 
-                    newMat.blendMode = .replace 
+                    
+                    // CULLING: See both sides (fixes "ghosting" from flipped normals)
+                    newMat.isDoubleSided = true
                     
                     newMaterials.append(newMat)
                 }
