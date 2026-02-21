@@ -12,7 +12,7 @@ struct SceneKitGameView: UIViewRepresentable {
         scnView.isPlaying = true
         scnView.allowsCameraControl = false
         scnView.antialiasingMode = .multisampling4X
-        scnView.backgroundColor = .clear
+        scnView.backgroundColor = UIColor(red: 0.5, green: 0.8, blue: 1.0, alpha: 1.0)
         scnView.preferredFramesPerSecond = 60
         return scnView
     }

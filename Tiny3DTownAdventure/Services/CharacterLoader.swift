@@ -65,53 +65,67 @@ class CharacterLoader {
             wrapper.addChildNode(fallbackNode)
         }
         
-        // --- STEP 3: APPLY EXTERNAL TEXTURE + FIX MATERIALS ---
+        // --- STEP 3: THE ULTIMATE NUCLEAR OPAQUE FIX ---
         let textureName = "player_texture"
-        let textureImage = UIImage(named: textureName) ?? (Bundle.main.url(forResource: textureName, withExtension: "png").flatMap { UIImage(contentsOfFile: $0.path) })
+        var finalImage: UIImage? = UIImage(named: textureName) ?? (Bundle.main.url(forResource: textureName, withExtension: "png").flatMap { UIImage(contentsOfFile: $0.path) })
 
-        print("🛠️ CharacterLoader: Starting Ultra-Fix Material Nuke...")
+        // STRIP ALPHA CHANNEL: Redraw the texture onto a completely black/opaque canvas
+        if let original = finalImage {
+            let size = original.size
+            UIGraphicsBeginImageContextWithOptions(size, true, 1.0) // 'true' means OPAQUE
+            UIColor.black.setFill()
+            UIRectFill(CGRect(origin: .zero, size: size))
+            original.draw(in: CGRect(origin: .zero, size: size))
+            finalImage = UIGraphicsGetImageFromCurrentImageContext()
+            UIGraphicsEndImageContext()
+            print("🧼 Image Nuclear Fix: Alpha channel stripped and flattened.")
+        }
+
+        print("🚀 CharacterLoader: Executing Absolute Zero Opaque Lock...")
+        
+        wrapper.renderingOrder = 5000
+        wrapper.opacity = 1.0
         
         wrapper.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
-            child.renderingOrder = 2000 // Even higher
+            child.renderingOrder = 5000
+            child.filters = [] 
             
             if let geo = child.geometry {
-                print("📦 Node '\(child.name ?? "unnamed")' has geometry with \(geo.materials.count) materials.")
-                var newMaterials: [SCNMaterial] = []
+                let nuclearMat = SCNMaterial()
+                nuclearMat.name = "ABSOLUTE_OPAQUE"
                 
-                for i in 0..<geo.materials.count {
-                    let newMat = SCNMaterial()
-                    newMat.name = "OpaqueFix_\(i)"
-                    
-                    if let image = textureImage {
-                        newMat.diffuse.contents = image
-                        print("   ✅ Applied texture to material \(i)")
-                    } else {
-                        // Diagnostic MAGENTA - Impossible to ignore
-                        newMat.diffuse.contents = UIColor.magenta
-                        print("   ⚠️ MISSING TEXTURE - Falling back to Magenta for material \(i)")
-                    }
-                    
-                    // LIGHTING: Lambert is safer than PBR if env is missing
-                    newMat.lightingModel = .lambert 
-                    
-                    // TRANSPARENCY: Kill it with fire
-                    newMat.transparency = 1.0
-                    newMat.transparent.contents = nil
-                    newMat.transparencyMode = .aOne
-                    newMat.blendMode = .replace // Force Overwrite
-                    
-                    // DEPTH: Ensure solid presence
-                    newMat.writesToDepthBuffer = true
-                    newMat.readsFromDepthBuffer = true
-                    
-                    // CULLING: See both sides (fixes "ghosting" from flipped normals)
-                    newMat.isDoubleSided = true
-                    
-                    newMaterials.append(newMat)
+                if let image = finalImage {
+                    nuclearMat.diffuse.contents = image
+                    // Add emission so she doesn't look dark/ghosty in shadows
+                    nuclearMat.emission.contents = image
+                    nuclearMat.emission.intensity = 0.2
+                } else {
+                    nuclearMat.diffuse.contents = UIColor.magenta
                 }
-                geo.materials = newMaterials
+                
+                // LIGHTING
+                nuclearMat.lightingModel = .lambert
+                
+                // THE OPAQUE LOCK
+                nuclearMat.transparency = 1.0
+                nuclearMat.transparent.contents = UIColor.white // In .aOne, white = Opaque
+                nuclearMat.transparencyMode = .aOne
+                nuclearMat.blendMode = .replace
+                
+                // DEPTH & CULLING
+                nuclearMat.writesToDepthBuffer = true
+                nuclearMat.readsFromDepthBuffer = true
+                nuclearMat.isDoubleSided = true // Flipped normals fix
+                
+                // Remove all other material settings that could cause bugs
+                nuclearMat.specular.contents = UIColor.black
+                nuclearMat.reflective.contents = nil
+                nuclearMat.colorBufferWriteMask = [.all]
+                
+                geo.materials = [nuclearMat]
+                print("💎 Locked Node '\(child.name ?? "unnamed")' to Absolute Opaque.")
             }
         }
         
