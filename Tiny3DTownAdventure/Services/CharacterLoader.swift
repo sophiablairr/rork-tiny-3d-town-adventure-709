@@ -65,51 +65,44 @@ class CharacterLoader {
             wrapper.addChildNode(fallbackNode)
         }
         
-        // --- STEP 3: ENSURE VISIBILITY + FIX PBR MATERIALS ---
+        // --- STEP 3: APPLY EXTERNAL TEXTURE + FIX MATERIALS ---
+        let textureName = "player_texture"
+        let textureImage = UIImage(named: textureName) ?? (Bundle.main.url(forResource: textureName, withExtension: "png").flatMap { UIImage(contentsOfFile: $0.path) })
+
         wrapper.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
-            child.renderingOrder = 100
             
             if let geo = child.geometry {
-                // MATERIAL LAUNDERING: Create FRESH materials
-                // We do not modify the old ones. We replace them entirely.
                 var newMaterials: [SCNMaterial] = []
                 
-                for oldMat in geo.materials {
+                for _ in geo.materials {
                     let newMat = SCNMaterial()
                     
-                    // 1. LAUNDER THE TEXTURE: Redraw onto opaque context to kill alpha channel
-                    let diffuseContent = oldMat.diffuse.contents
-                    if let image = diffuseContent as? UIImage {
-                        let size = image.size
-                        UIGraphicsBeginImageContextWithOptions(size, true, 1.0) // OPAQUE
-                        UIColor.black.setFill()
-                        UIRectFill(CGRect(origin: .zero, size: size))
-                        image.draw(in: CGRect(origin: .zero, size: size))
-                        let laundered = UIGraphicsGetImageFromCurrentImageContext()
-                        UIGraphicsEndImageContext()
-                        newMat.diffuse.contents = laundered
-                        print("🧼 Texture Laundered: Stripped Alpha channel")
-                    } else if diffuseContent != nil {
-                        newMat.diffuse.contents = diffuseContent
+                    // Apply the separate texture if we found it
+                    if let image = textureImage {
+                        newMat.diffuse.contents = image
+                        print("🎨 Applied separate texture: \(textureName)")
                     } else {
                         newMat.diffuse.contents = UIColor.systemGray
+                        print("⚠️ Could not find texture: \(textureName)")
                     }
                     
-                    // 2. Force Strict Rendering Settings
-                    newMat.lightingModel = .constant // Back to FLAT for extreme sanity
-                    newMat.isDoubleSided = true
+                    // Physical Lighting model for premium look
+                    newMat.lightingModel = .physicallyBased
+                    newMat.roughness.contents = 0.8
+                    newMat.metalness.contents = 0.0
+                    
+                    // Strict Opaque Settings to avoid "ghostly" or "black" bugs
+                    newMat.isDoubleSided = false 
                     newMat.transparency = 1.0
-                    newMat.transparencyMode = .aOne 
+                    newMat.transparencyMode = .rgbZero // Ignores alpha channel entirely
                     newMat.writesToDepthBuffer = true
                     newMat.readsFromDepthBuffer = true
-                    newMat.blendMode = .replace // NO BLENDING
+                    newMat.blendMode = .replace 
                     
                     newMaterials.append(newMat)
                 }
-                
-                // Replace the array entirely
                 geo.materials = newMaterials
             }
         }

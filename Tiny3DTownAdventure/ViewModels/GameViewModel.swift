@@ -75,7 +75,7 @@ class GameViewModel {
 
     private func createPlayer() {
         // CharacterLoader now handles everything: loading, scaling, and the neon fallback if file is missing.
-        playerNode = CharacterLoader.load(named: "character") ?? SCNNode() 
+        playerNode = CharacterLoader.load(named: "player") ?? SCNNode() 
         playerNode.position = SCNVector3(0, 0, 3)
         scene.rootNode.addChildNode(playerNode)
     }
