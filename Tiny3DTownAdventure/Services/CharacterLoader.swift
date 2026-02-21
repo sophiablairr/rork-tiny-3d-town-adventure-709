@@ -1,13 +1,11 @@
 import SceneKit
 import SwiftUI
-import ModelIO
-import SceneKit.ModelIO
 
 class CharacterLoader {
     static func load(named name: String) -> SCNNode? {
         print("🔍 CharacterLoader: Attempting to load '\(name)'")
         
-        let extensions = ["glb", "usdz", "scn", "dae", "obj"]
+        let extensions = ["usdz", "scn", "dae", "obj"]
         var modelUrl: URL? = nil
         
         for ext in extensions {
@@ -22,106 +20,114 @@ class CharacterLoader {
         wrapper.name = "CharacterRoot"
         
         if let url = modelUrl {
-            print("📦 [CharacterLoader] FILE FOUND: \(url.path)")
+            print("✅ Found file at \(url.lastPathComponent). Loading...")
             
-            // Strategy 0: ModelIO (Robust loading for GLB and USDZ)
-            let asset = MDLAsset(url: url)
-            asset.loadTextures()
-            let scene = SCNScene(mdlAsset: asset)
-            
-            if scene.rootNode.childNodes.count > 0 {
-                print("✅ [Strategy: ModelIO] SUCCESS. Nodes: \(scene.rootNode.childNodes.count)")
+            // Try Scene(named:) first as it's the most common for bundled assets
+            let fullName = "\(name).\(url.pathExtension)"
+            if let scene = SCNScene(named: fullName) {
                 for child in scene.rootNode.childNodes {
                     wrapper.addChildNode(child.clone())
                 }
             }
             
-            // Strategy 1: Scene(named:) fallback
+            // Strategy 2: Reference Node
             if wrapper.childNodes.isEmpty {
-                let fullName = "\(name).\(url.pathExtension)"
-                if let scene = SCNScene(named: fullName) {
-                    print("✅ [Strategy: SceneNamed] SUCCESS")
+                if let refNode = SCNReferenceNode(url: url) {
+                    refNode.load()
+                    wrapper.addChildNode(refNode)
+                }
+            }
+            
+            // Strategy 3: URL Direct
+            if wrapper.childNodes.isEmpty {
+                if let scene = try? SCNScene(url: url, options: nil) {
                     for child in scene.rootNode.childNodes {
                         wrapper.addChildNode(child.clone())
                     }
                 }
             }
-        } else {
-            print("❌ [CharacterLoader] NO FILE FOUND matching '\(name)'")
         }
         
-        // --- STEP 1.5: DEBUG MARKER (RED BALL) ---
-        let debugMarker = SCNNode(geometry: SCNSphere(radius: 0.05))
-        debugMarker.geometry?.firstMaterial?.diffuse.contents = UIColor.red
-        debugMarker.geometry?.firstMaterial?.lightingModel = .constant
-        debugMarker.name = "DEBUG_MARKER"
-        wrapper.addChildNode(debugMarker)
-        
         // --- STEP 2: FALLBACK IF EMPTY ---
-        if wrapper.childNodes.count <= 1 {
-            print("⚠️ [CharacterLoader] EMPTY LOAD. Showing Small Fallback Pill.")
-            let capsule = SCNCapsule(capRadius: 0.2, height: 1.0)
+        if wrapper.childNodes.isEmpty {
+            print("⚠️ CharacterLoader: All file strategies failed. Creating NEON FALLBACK.")
+            let capsule = SCNCapsule(capRadius: 0.4, height: 1.8)
+            // NEON GREEN - Impossible to miss
             let material = SCNMaterial()
             material.diffuse.contents = UIColor.green
+            material.emission.contents = UIColor.green
             material.lightingModel = .constant
             capsule.firstMaterial = material
+            
             let fallbackNode = SCNNode(geometry: capsule)
-            fallbackNode.position = SCNVector3(0, 0.5, 0)
+            fallbackNode.name = "FALLBACK_NODE"
+            fallbackNode.position = SCNVector3(0, 0.9, 0) // Center of 1.8m height
             wrapper.addChildNode(fallbackNode)
         }
         
-        // --- STEP 3: MATERIAL FIXES ---
+        // --- STEP 3: ENSURE VISIBILITY + FIX PBR MATERIALS ---
         wrapper.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
+            child.renderingOrder = 100
             
-            if let geo = child.geometry, child.name != "DEBUG_MARKER" {
+            if let geo = child.geometry {
+                // MATERIAL LAUNDERING: Create FRESH materials
+                // We do not modify the old ones. We replace them entirely.
                 var newMaterials: [SCNMaterial] = []
+                
                 for oldMat in geo.materials {
                     let newMat = SCNMaterial()
-                    let diffuseContent = oldMat.diffuse.contents
                     
+                    // 1. LAUNDER THE TEXTURE: Redraw onto opaque context to kill alpha channel
+                    let diffuseContent = oldMat.diffuse.contents
                     if let image = diffuseContent as? UIImage {
                         let size = image.size
-                        UIGraphicsBeginImageContextWithOptions(size, true, 1.0)
+                        UIGraphicsBeginImageContextWithOptions(size, true, 1.0) // OPAQUE
                         UIColor.black.setFill()
                         UIRectFill(CGRect(origin: .zero, size: size))
                         image.draw(in: CGRect(origin: .zero, size: size))
                         let laundered = UIGraphicsGetImageFromCurrentImageContext()
                         UIGraphicsEndImageContext()
                         newMat.diffuse.contents = laundered
+                        print("🧼 Texture Laundered: Stripped Alpha channel")
                     } else if diffuseContent != nil {
                         newMat.diffuse.contents = diffuseContent
                     } else {
                         newMat.diffuse.contents = UIColor.systemGray
                     }
                     
-                    newMat.lightingModel = .constant
+                    // 2. Force Strict Rendering Settings
+                    newMat.lightingModel = .constant // Back to FLAT for extreme sanity
                     newMat.isDoubleSided = true
+                    newMat.transparency = 1.0
                     newMat.transparencyMode = .aOne 
                     newMat.writesToDepthBuffer = true
-                    newMat.blendMode = .replace
+                    newMat.readsFromDepthBuffer = true
+                    newMat.blendMode = .replace // NO BLENDING
                     
                     newMaterials.append(newMat)
                 }
+                
+                // Replace the array entirely
                 geo.materials = newMaterials
             }
         }
         
-        // --- STEP 4: SCALE & PIVOT ---
+        // --- STEP 4: AUTO-SCALE AND PIVOT TO BOTTOM ---
         let (min, max) = wrapper.boundingBox
-        if min.x.isFinite && max.x.isFinite {
-            let h = max.y - min.y
-            if h > 0 {
-                if h > 5 || h < 0.2 {
-                    let s = 1.8 / Float(h)
-                    wrapper.scale = SCNVector3(s, s, s)
-                    print("⚖️ Auto-scaled by \(s) (Measured height: \(h))")
-                }
-                let centerX = (max.x + min.x) / 2
-                let centerZ = (max.z + min.z) / 2
-                wrapper.pivot = SCNMatrix4MakeTranslation(centerX, min.y, centerZ)
+        let height = max.y - min.y
+        print("📐 CharacterLoader: BoundingBox Min:\(min) Max:\(max) Height:\(height)")
+
+        if height > 0 {
+            if height > 8 || height < 0.2 {
+                let s = 1.8 / height
+                wrapper.scale = SCNVector3(s, s, s)
             }
+            
+            let centerX = (max.x + min.x) / 2
+            let centerZ = (max.z + min.z) / 2
+            wrapper.pivot = SCNMatrix4MakeTranslation(centerX, min.y, centerZ)
         }
         
         wrapper.position = SCNVector3(0, 0, 0)
