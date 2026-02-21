@@ -1,11 +1,13 @@
 import SceneKit
 import SwiftUI
+import ModelIO
+import SceneKit.ModelIO
 
 class CharacterLoader {
     static func load(named name: String) -> SCNNode? {
         print("🔍 CharacterLoader: Attempting to load '\(name)'")
         
-        let extensions = ["usdz", "scn", "dae", "obj"]
+        let extensions = ["glb", "usdz", "scn", "dae", "obj"]
         var modelUrl: URL? = nil
         
         for ext in extensions {
@@ -22,11 +24,22 @@ class CharacterLoader {
         if let url = modelUrl {
             print("✅ Found file at \(url.lastPathComponent). Loading...")
             
-            // Try Scene(named:) first as it's the most common for bundled assets
-            let fullName = "\(name).\(url.pathExtension)"
-            if let scene = SCNScene(named: fullName) {
+            // Strategy 0: ModelIO (for .glb support)
+            if url.pathExtension.lowercased() == "glb" {
+                let asset = MDLAsset(url: url)
+                let scene = SCNScene(mdlAsset: asset)
                 for child in scene.rootNode.childNodes {
                     wrapper.addChildNode(child.clone())
+                }
+            }
+            
+            // Strategy 1: Scene(named:)
+            if wrapper.childNodes.isEmpty {
+                let fullName = "\(name).\(url.pathExtension)"
+                if let scene = SCNScene(named: fullName) {
+                    for child in scene.rootNode.childNodes {
+                        wrapper.addChildNode(child.clone())
+                    }
                 }
             }
             
