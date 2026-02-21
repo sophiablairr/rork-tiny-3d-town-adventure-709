@@ -72,6 +72,8 @@ class CharacterLoader {
         wrapper.enumerateChildNodes { (child, _) in
             child.isHidden = false
             child.opacity = 1.0
+            // SUPER HIGH rendering order to prevent "ghosting" through fog/other objects
+            child.renderingOrder = 1000 
             
             if let geo = child.geometry {
                 var newMaterials: [SCNMaterial] = []
@@ -79,26 +81,29 @@ class CharacterLoader {
                 for _ in geo.materials {
                     let newMat = SCNMaterial()
                     
-                    // Apply the separate texture if we found it
                     if let image = textureImage {
                         newMat.diffuse.contents = image
-                        print("🎨 Applied separate texture: \(textureName)")
+                        print("🎨 SUCCESS: Applied texture '\(textureName)'")
                     } else {
-                        newMat.diffuse.contents = UIColor.systemGray
-                        print("⚠️ Could not find texture: \(textureName)")
+                        // VIBRANT PINK fallback so we KNOW if the texture failed to load
+                        newMat.diffuse.contents = UIColor.systemPink
+                        print("⚠️ WARNING: Texture '\(textureName)' MISSING! Check file name/extensions.")
                     }
                     
-                    // Physical Lighting model for premium look
+                    // Kill ALL transparency logic
+                    newMat.transparent.contents = nil
+                    newMat.transparency = 1.0
+                    newMat.transparencyMode = .aOne
+                    
+                    // High quality but stable lighting
                     newMat.lightingModel = .physicallyBased
-                    newMat.roughness.contents = 0.8
+                    newMat.roughness.contents = 0.5
                     newMat.metalness.contents = 0.0
                     
-                    // Strict Opaque Settings to avoid "ghostly" or "black" bugs
-                    newMat.isDoubleSided = false 
-                    newMat.transparency = 1.0
-                    newMat.transparencyMode = .rgbZero // Ignores alpha channel entirely
+                    // Force Depth Writing (The anti-ghosting secret)
                     newMat.writesToDepthBuffer = true
                     newMat.readsFromDepthBuffer = true
+                    newMat.isDoubleSided = false 
                     newMat.blendMode = .replace 
                     
                     newMaterials.append(newMat)
